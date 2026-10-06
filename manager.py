@@ -44,28 +44,62 @@ class Manager:
         return self.api._request("GET", post_id, {"fields": "likes.summary(true)"}).get("likes", {}).get("summary", {}).get("total_count", 0)
 
     def get_post_insights(self, post_id: str) -> dict[str, Any]:
+        # Graph API rejects the ENTIRE multi-metric request if even one metric
+        # in the comma-joined list is invalid, so this list is a verified
+        # allowlist, not a wishlist. post_impressions* (removed in v25+) and
+        # post_engaged_users (retired permanently by Meta 2024-09-16, no
+        # replacement) were both breaking this call — do not add either back.
+        # Use get_post_impressions_paid/_organic for the ads/organic split
+        # via the is_from_ads breakdown, and get_post_engaged_users for an
+        # estimated engaged-users figure.
         metrics = [
-            "post_impressions", "post_impressions_unique", "post_impressions_paid",
-            "post_impressions_organic", "post_engaged_users", "post_clicks",
-            "post_reactions_like_total", "post_reactions_love_total", "post_reactions_wow_total",
-            "post_reactions_haha_total", "post_reactions_sorry_total", "post_reactions_anger_total",
+            "post_media_view", "post_total_media_view_unique", "post_clicks",
+            "post_reactions_by_type_total",
         ]
         return self.api.get_bulk_insights(post_id, metrics)
-    
+
     def get_post_impressions(self, post_id: str) -> dict[str, Any]:
-        return self.api.get_insights(post_id, "post_impressions")
+        """Total content views. Replaces post_impressions, removed in Graph API v25+."""
+        return self.api.get_insights(post_id, "post_media_view")
 
     def get_post_impressions_unique(self, post_id: str) -> dict[str, Any]:
-        return self.api.get_insights(post_id, "post_impressions_unique")
+        """Unique content viewers. Replaces post_impressions_unique, removed in Graph API v25+."""
+        return self.api.get_insights(post_id, "post_total_media_view_unique")
 
     def get_post_impressions_paid(self, post_id: str) -> dict[str, Any]:
-        return self.api.get_insights(post_id, "post_impressions_paid")
+        """Views attributed to ads, via post_media_view's is_from_ads
+        breakdown. Replaces post_impressions_paid, removed in Graph API v25+.
+        Falls back to the raw breakdown response if Meta's response shape
+        doesn't match what extract_breakdown_value parses for."""
+        raw = self.api.get_insights(post_id, "post_media_view", breakdown="is_from_ads")
+        value = self.api.extract_breakdown_value(raw, "true")
+        return raw if value is None else {"post_id": post_id, "metric": "post_media_view", "is_from_ads": True, "value": value}
 
     def get_post_impressions_organic(self, post_id: str) -> dict[str, Any]:
-        return self.api.get_insights(post_id, "post_impressions_organic")
+        """Views not attributed to ads, via post_media_view's is_from_ads
+        breakdown. Replaces post_impressions_organic, removed in Graph API v25+."""
+        raw = self.api.get_insights(post_id, "post_media_view", breakdown="is_from_ads")
+        value = self.api.extract_breakdown_value(raw, "false")
+        return raw if value is None else {"post_id": post_id, "metric": "post_media_view", "is_from_ads": False, "value": value}
 
     def get_post_engaged_users(self, post_id: str) -> dict[str, Any]:
-        return self.api.get_insights(post_id, "post_engaged_users")
+        """Meta permanently retired post_engaged_users on 2024-09-16 with no
+        replacement metric — it is gone, not renamed. Returns a computed
+        ESTIMATE (comments + shares + total reactions) instead, clearly
+        labeled as such; this is not an official Meta engaged-users count and
+        may undercount versus Meta's original metric (no click dedup)."""
+        num_comments = self.get_number_of_comments(post_id)
+        num_shares = self.api.get_post_share_count(post_id)
+        reactions = self.get_post_reactions_breakdown(post_id)
+        num_reactions = sum(v for v in reactions.values() if isinstance(v, (int, float)))
+        return {
+            "post_id": post_id,
+            "is_estimate": True,
+            "estimated_engaged_users": num_comments + num_shares + num_reactions,
+            "note": "Meta retired post_engaged_users on 2024-09-16 with no replacement metric. "
+                    "This is a computed approximation (comments + shares + reactions), not an official Meta metric.",
+            "components": {"comments": num_comments, "shares": num_shares, "reactions": num_reactions},
+        }
 
     def get_post_clicks(self, post_id: str) -> dict[str, Any]:
         return self.api.get_insights(post_id, "post_clicks")

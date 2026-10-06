@@ -37,12 +37,41 @@ class FacebookAPI:
         """Unhide a previously hidden comment."""
         return self._request("POST", f"{comment_id}", {"is_hidden": False})
 
-    def get_insights(self, post_id: str, metric: str, period: str = "lifetime") -> dict[str, Any]:
-        return self._request("GET", f"{post_id}/insights", {"metric": metric, "period": period})
+    def get_insights(self, post_id: str, metric: str, period: str = "lifetime", breakdown: str = None) -> dict[str, Any]:
+        params = {"metric": metric, "period": period}
+        if breakdown:
+            params["breakdown"] = breakdown
+        return self._request("GET", f"{post_id}/insights", params)
 
     def get_bulk_insights(self, post_id: str, metrics: list[str], period: str = "lifetime") -> dict[str, Any]:
         metric_str = ",".join(metrics)
         return self.get_insights(post_id, metric_str, period)
+
+    @staticmethod
+    def extract_breakdown_value(response: dict[str, Any], dimension_value: str) -> Any:
+        """Best-effort extraction of one dimension's value from an Insights
+        `breakdown` response (e.g. metric=post_media_view&breakdown=is_from_ads).
+
+        Meta's docs don't publish a worked JSON example for Page/post
+        breakdowns, so this tries the two shapes seen elsewhere in the Graph
+        API: a `value` dict keyed by the dimension's string (the legacy
+        breakdown shape, e.g. page_fans_country), and the newer
+        `total_value.breakdowns[].results[]` shape. Returns None if neither
+        matches, so callers can fall back to the raw response instead of
+        reporting a wrong number.
+        """
+        for item in response.get("data", []):
+            for v in item.get("values", []):
+                value = v.get("value")
+                if isinstance(value, dict) and dimension_value in value:
+                    return value[dimension_value]
+            total = item.get("total_value")
+            if isinstance(total, dict):
+                for bd in total.get("breakdowns", []):
+                    for result in bd.get("results", []):
+                        if dimension_value in result.get("dimension_values", []):
+                            return result.get("value")
+        return None
 
     def post_image_to_facebook(self, image_url: str, caption: str) -> dict[str, Any]:
         params = {

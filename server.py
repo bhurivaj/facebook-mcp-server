@@ -99,7 +99,10 @@ def get_number_of_likes(post_id: str) -> int:
 
 @mcp.tool()
 def get_post_insights(post_id: str) -> dict[str, Any]:
-    """Fetch all insights metrics (impressions, reactions, clicks, etc).
+    """Fetch core post insights (views, clicks, reaction breakdown) via a
+    verified allowlist of metrics still valid in Graph API v25+. Does not
+    include engaged users (Meta retired that metric permanently with no
+    replacement) — use get_post_engaged_users for an estimate.
     Input: post_id (str)
     Output: dict with multiple metrics and their values
     """
@@ -107,41 +110,48 @@ def get_post_insights(post_id: str) -> dict[str, Any]:
 
 @mcp.tool()
 def get_post_impressions(post_id: str) -> dict[str, Any]:
-    """Fetch total impressions of a post.
+    """Fetch total content views of a post (post_media_view; Meta's replacement
+    for the post_impressions metric it removed in Graph API v25+).
     Input: post_id (str)
-    Output: dict with total impression count
+    Output: dict with the insights response
     """
     return manager.get_post_impressions(post_id)
 
 @mcp.tool()
 def get_post_impressions_unique(post_id: str) -> dict[str, Any]:
-    """Fetch unique impressions of a post.
+    """Fetch unique content viewers of a post (post_total_media_view_unique;
+    Meta's replacement for post_impressions_unique, removed in Graph API v25+).
     Input: post_id (str)
-    Output: dict with unique impression count
+    Output: dict with unique viewer count
     """
     return manager.get_post_impressions_unique(post_id)
 
 @mcp.tool()
 def get_post_impressions_paid(post_id: str) -> dict[str, Any]:
-    """Fetch paid impressions of a post.
+    """Fetch views attributed to ads on a post (post_media_view's is_from_ads
+    breakdown; Meta's replacement for post_impressions_paid, removed in Graph API v25+).
     Input: post_id (str)
-    Output: dict with paid impression count
+    Output: dict with the paid-view count, or the raw breakdown response if the value couldn't be parsed
     """
     return manager.get_post_impressions_paid(post_id)
 
 @mcp.tool()
 def get_post_impressions_organic(post_id: str) -> dict[str, Any]:
-    """Fetch organic impressions of a post.
+    """Fetch views not attributed to ads on a post (post_media_view's is_from_ads
+    breakdown; Meta's replacement for post_impressions_organic, removed in Graph API v25+).
     Input: post_id (str)
-    Output: dict with organic impression count
+    Output: dict with the organic-view count, or the raw breakdown response if the value couldn't be parsed
     """
     return manager.get_post_impressions_organic(post_id)
 
 @mcp.tool()
 def get_post_engaged_users(post_id: str) -> dict[str, Any]:
-    """Fetch number of engaged users.
+    """Fetch an ESTIMATED engaged-users count. Meta permanently retired the
+    post_engaged_users metric on 2024-09-16 with no replacement, so this is a
+    computed approximation (comments + shares + reactions), not a real Meta
+    number — the response is labeled `is_estimate: true`.
     Input: post_id (str)
-    Output: dict with engagement count
+    Output: dict with estimated_engaged_users and its components
     """
     return manager.get_post_engaged_users(post_id)
 
