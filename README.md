@@ -2,6 +2,8 @@
 
 This project is a **MCP server** for automating and managing interactions on a Facebook Page using the Facebook Graph API. It exposes tools to create posts, moderate comments, fetch post insights, and filter negative feedback — ready to plug into Claude, or other LLM-based agents.
 
+> **Fork Notice:** This repository is forked from [HagaiHen/facebook-mcp-server](https://github.com/HagaiHen/facebook-mcp-server). This fork upgrades the Facebook Graph API integration to **v25.0** (see `config.py`), including migrating `get_post_insights`, `get_post_impressions*`, and `get_post_engaged_users` off metrics Meta deprecated or retired in that version.
+
 [![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/HagaiHen/facebook-mcp-server)](https://archestra.ai/mcp-catalog/hagaihen__facebook-mcp-server)
 <a href="https://glama.ai/mcp/servers/@HagaiHen/facebook-mcp-server">
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@HagaiHen/facebook-mcp-server/badge" />
